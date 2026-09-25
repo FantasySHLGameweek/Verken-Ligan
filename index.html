@@ -206,7 +206,7 @@ dialog::backdrop{background:#000a}
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="SHL Gameweek">
-<script>window.FSL_PUBLIC_URL="https://bapskalle.github.io/fantasy-shl/";</script>
+<script>window.FSL_PUBLIC_URL="https://fantasy-shl-gameweek.netlify.app/";</script>
 <script>window.FSL_FIXED_LEAGUE={"id": "14303", "name": "Verken-Ligan"};</script>
 </head>
 <body>
@@ -233,8 +233,8 @@ dialog::backdrop{background:#000a}
     <p>Poäng, rivaler, coachkort och byten för din liga – även live under omgången.</p>
   </div>
   <div class="landcard">
-    <label for="lId">Ditt lag-ID</label>
-    <div class="lrow"><input id="lId" placeholder="LAG-ID ELLER LÄNK" autocomplete="off" spellcheck="false" enterkeyhint="go"><button id="lGo" class="lbtn" type="button">KÖR</button></div>
+    <label for="lId" id="lIdLabel">Ditt lag-ID</label>
+    <div class="lrow" id="lIdRow"><input id="lId" placeholder="LAG-ID ELLER LÄNK" autocomplete="off" spellcheck="false" enterkeyhint="go"><button id="lGo" class="lbtn" type="button">KÖR</button></div>
     <div id="lIdMsg" class="lmsg"></div>
     <button id="lFindId" class="lfind" type="button">Vet du inte ditt lag-ID? Hitta det på 30 sekunder ›</button>
     <div id="lFindBox" class="lfindbox hidden">
@@ -246,8 +246,8 @@ dialog::backdrop{background:#000a}
       </ol>
       <p>Appen plockar bara ut ditt lag-ID. Allt annat på sidan (t.ex. e-post) kastas direkt och sparas aldrig.</p>
     </div>
-    <label for="lName">Eller ditt namn eller lagnamn <span id="lNameHint" class="lhint"></span></label>
-    <div class="lrow"><input id="lName" type="search" placeholder="FÖR- OCH EFTERNAMN" autocomplete="off" spellcheck="false" enterkeyhint="search"><button id="lSearch" class="lbtn" type="button">SÖK</button></div>
+    <label for="lName" id="lNameLabel"><span id="lNameLead">Eller ditt namn eller lagnamn</span> <span id="lNameHint" class="lhint"></span></label>
+    <div class="lrow" id="lNameRow"><input id="lName" type="search" placeholder="FÖR- OCH EFTERNAMN" autocomplete="off" spellcheck="false" enterkeyhint="search"><button id="lSearch" class="lbtn" type="button">SÖK</button></div>
     <div id="lResults"></div>
     <button id="lDemo" class="ldemo" type="button"><span class="pill">DEMO</span> Testa med en påhittad liga</button>
   </div>
@@ -310,7 +310,7 @@ dialog::backdrop{background:#000a}
   <div id="shareWarn" class="warn small hidden"></div>
   <input id="shareUrl" readonly class="shareurl" aria-label="Länk">
   <div class="row" style="justify-content:space-between;margin-top:10px"><button id="shareCopy" class="primary" type="button">Kopiera länk</button><form method="dialog"><button>Stäng</button></form></div>
-  <p class="small muted" style="margin:10px 0 0">Länken innehåller ligans kod (bara läsåtkomst). Dela den bara med ligan.</p>
+  <p id="shareNote" class="small muted" style="margin:10px 0 0">Länken innehåller ligans kod (bara läsåtkomst). Dela den bara med ligan.</p>
 </dialog>
 <dialog id="owners"><div id="ownersBody"></div><form method="dialog" style="text-align:right;margin-top:10px"><button>Stäng</button></form></dialog>
 
@@ -618,7 +618,7 @@ dialog::backdrop{background:#000a}
   function buildShareQuery(p) {
     var parts = [];
     ['league', 'uc', 'lag'].forEach(function (k) { if (p[k]) parts.push(k + '=' + encodeURIComponent(p[k])); });
-    return '?' + parts.join('&');
+    return parts.length ? '?' + parts.join('&') : '';
   }
 
   /* ---------- Demo-API (samma svarsformer som fantasy.shl.se, inkl. e-post som måste strippas) ---------- */
@@ -1086,7 +1086,7 @@ dialog::backdrop{background:#000a}
   var FSL = window.FSL;
   // En kompisfil har ligan förinställd (window.FSL_PRESET). Värdena kontrolleras innan de används.
   // Funktioner som kan slås av och på.
-  var FEATURES = { impact: false }; // "Skadar mig": avstängd tills vidare
+  var FEATURES = { impact: false, nameSearch: false }; // "Skadar mig" och startsidans namnsökning: avstängda tills vidare
   // Låst liga (sätts av build_web.py --league). Då visas och används bara den ligan.
   var FIXED = (function (x) {
     return x && /^\d{1,9}$/.test(String(x.id)) ? { id: String(x.id), name: String(x.name || ('Liga ' + x.id)).slice(0, 80) } : null;
@@ -1136,6 +1136,7 @@ dialog::backdrop{background:#000a}
     if (S.access && S.access.uc) return S.access;
     var uc = getUc() || (PRESET ? PRESET.uc : '');
     if (!uc) return null;
+    if (PRESET && uc === PRESET.uc && FIXED) PRESET.league = FIXED.id;
     var league = FIXED ? FIXED.id : (getLastLeague() || (PRESET ? PRESET.league : ''));
     return { uc: uc, league: league, name: FIXED ? FIXED.name : (getLeagueName(league) || (PRESET && PRESET.league === league ? PRESET.name : '')) };
   }
@@ -1146,10 +1147,15 @@ dialog::backdrop{background:#000a}
     setStatus('');
     renderLanding();
     window.scrollTo(0, 0);
-    setTimeout(function () { var el = access() ? $('#lName') : $('#lId'); if (el) el.focus(); }, 60);
+    setTimeout(function () { var el = FEATURES.nameSearch && access() ? $('#lName') : $('#lId'); if (el) el.focus(); }, 60);
   }
   function renderLanding() {
     var acc = access();
+    var nameOnly = FEATURES.nameSearch && !!(PRESET && acc && acc.uc === PRESET.uc); // förinställd liga: bara namnsökning
+    ['#lNameLabel', '#lNameRow', '#lResults'].forEach(function (sel) { $(sel).classList.toggle('hidden', !FEATURES.nameSearch); });
+    ['#lIdLabel', '#lIdRow', '#lIdMsg', '#lFindId'].forEach(function (sel) { $(sel).classList.toggle('hidden', nameOnly); });
+    if (nameOnly) $('#lFindBox').classList.add('hidden');
+    $('#lNameLead').textContent = nameOnly ? 'Sök ditt namn eller lagnamn' : 'Eller ditt namn eller lagnamn';
     $('#lNameHint').textContent = acc ? '(i ' + (acc.name || (acc.league ? 'liga ' + acc.league : 'dina ligor')) + ')' : '';
     $('#leagueLabel').textContent = FIXED ? FIXED.name : (acc && acc.name ? acc.name : 'Kompisligan');
     if (!acc && !$('#lResults').innerHTML) $('#lResults').innerHTML = '';
@@ -1166,7 +1172,7 @@ dialog::backdrop{background:#000a}
       return;
     }
     if (!pz.uc) { landMsg(box, 'Skriv ditt lag-ID eller klistra in en länk.', true); return; }
-    if (pz.share && !pz.lag && !pz.team) {
+    if (pz.share && !pz.lag && !pz.team && FEATURES.nameSearch) {
       // En ligalänk från en kompis: nu vet vi ligan – sök ditt namn.
       S.access = FIXED ? { uc: pz.uc, league: FIXED.id, name: FIXED.name } : { uc: pz.uc, league: pz.league || '', name: getLeagueName(pz.league) };
       S.landTeams = {};
@@ -1896,6 +1902,7 @@ dialog::backdrop{background:#000a}
   /* ---------- Delningslänk ---------- */
   // Ligalänk: bara liga + kod (varje kompis väljer sitt lag via namnet). Egen länk: även lag=Lagnamn.
   function shareParams(own) {
+    if (PRESET && S.uc === PRESET.uc && !S.demo) return own && S.confirmed && S.myUc ? { lag: teamName(S.myUc) } : {};
     var p = { league: S.league || $('#league').value.trim(), uc: S.uc || $('#uc').value.trim() };
     if (own && S.confirmed && S.myUc) p.lag = teamName(S.myUc);
     return p;
@@ -1918,6 +1925,7 @@ dialog::backdrop{background:#000a}
     var href = baseHref() + FSL.buildShareQuery(shareParams(!!own));
     $('#shareTitle').textContent = own ? teamName(S.myUc) : (S.leagueName || 'ligan');
     $('#shareHint').textContent = own ? 'Öppnar ditt lag direkt. Bra för din egen mobil.' : 'Kompisarna skannar med mobilkameran, söker sitt namn och är igång.';
+    $('#shareNote').classList.toggle('hidden', !!(PRESET && S.uc === PRESET.uc));
     $('#shareQr').innerHTML = FSL.qrSvg(href);
     $('#shareUrl').value = href;
     var warn = $('#shareWarn');
@@ -2060,8 +2068,8 @@ dialog::backdrop{background:#000a}
     renderSaved();
     // Länk i adressen, annars sparad kod/liga eller kompisfilens förinställning.
     var p0 = initial.uc ? initial : null;
-    if (!p0) { var a0 = access(); if (a0) p0 = { uc: a0.uc, league: a0.league }; }
-    if (p0 && (p0.lag || p0.team || (p0.league && getLag(p0.league)))) applyParams(p0, true); // laget är känt: rakt in
+    if (!p0) { var a0 = access(); if (a0) p0 = { uc: a0.uc, league: a0.league, lag: initial.lag }; }
+    if (p0 && (p0.lag || p0.team || (p0.league && getLag(p0.league)) || (initial.uc && !FEATURES.nameSearch))) applyParams(p0, true); // laget känt, eller delad länk: rakt in
     else {
       if (p0) S.access = { uc: p0.uc, league: p0.league || '', name: getLeagueName(p0.league) || (PRESET && PRESET.league === p0.league ? PRESET.name : '') };
       showLanding(true); // annars startsidan: lag-ID eller namn
