@@ -61,6 +61,7 @@ body.landing #setup,body.landing #ctx,body.landing #tabs,body.landing #deadline,
 #lResults .hit .av{background:#181d26;color:#67a4ff}
 .ldemo{display:flex;align-items:center;gap:8px;background:none;border:0;padding:6px 0;margin-top:6px;color:#181d26;font-weight:700;text-decoration:underline;cursor:pointer}
 .ldemo .pill{background:#181d26;color:#fff;border-radius:999px;padding:3px 8px;font-size:.7rem;text-decoration:none;letter-spacing:.05em}
+.lnote{margin:2px 0 10px;font-size:.88rem;line-height:1.35;color:#181d26;background:#ffffffb3;border-radius:10px;padding:8px 10px}
 .lfind{background:none;border:0;padding:0;margin:0 0 12px;color:#181d26;font-weight:700;text-decoration:underline;cursor:pointer;font-size:.9rem}
 .lfindbox{background:#ffffffd9;border-radius:12px;padding:10px 14px;margin:0 0 14px;font-size:.9rem;color:#181d26}
 .lfindbox ol{margin:4px 0 6px 18px;padding:0}.lfindbox li{margin:6px 0}.lfindbox li span{font-size:.8rem;color:#3d4a5c}
@@ -144,6 +145,9 @@ tr.grp td{background:#ffffff08;font-size:.7rem;font-weight:800;text-transform:up
 .sortbtn{background:none;border:0;border-radius:6px;padding:2px 0;font:inherit;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;cursor:pointer;text-decoration:underline dotted #ffffff40;text-underline-offset:3px}
 .sortbtn:hover{color:#fff}
 .sortbtn.on{color:var(--acc);text-decoration:none}
+.ctxbar{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+.ctxbar .activebar{flex:1 1 260px;margin-top:0}
+.ctxbar #liveBtn{align-self:center}
 .activebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding:10px 12px;border-radius:12px;background:#67a4ff14;border:1px solid #67a4ff44}
 .activebar .who{flex:1 1 180px;min-width:0}
 .activebar .who small{display:block;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
@@ -232,16 +236,17 @@ dialog::backdrop{background:#000a}
 <section id="landing" class="landing" aria-label="Startsida">
   <div class="hero">
     <div class="hero-title">Fantasy SHL <span>Gameweek</span></div>
-    <p>Poäng, rivaler, coachkort och byten för din liga – även live under omgången.</p>
+    <p>Poäng, coachkort och byten för din liga – även live under omgången.</p>
   </div>
   <div class="landcard">
     <label for="lId" id="lIdLabel">Ditt lag-ID</label>
     <div class="lfield" id="lIdRow"><input id="lId" placeholder="LAG-ID ELLER LÄNK" autocomplete="off" spellcheck="false" enterkeyhint="go"><button id="lGo" class="lbtn" type="button">KÖR</button></div>
     <div id="lIdMsg" class="lmsg"></div>
+    <p id="lLoginNote" class="lnote">🔑 Ditt lag-ID hittar du bara när du är <b>inloggad på officiella Fantasy SHL</b> (fantasy.shl.se). Logga in där först, i samma webbläsare.</p>
     <button id="lFindId" class="lfind" type="button">Vet du inte ditt lag-ID? Hitta det på 30 sekunder ›</button>
     <div id="lFindBox" class="lfindbox hidden">
       <ol>
-        <li>Se till att du är <b>inloggad</b> på fantasy.shl.se i den här webbläsaren.</li>
+        <li><b>Logga in på officiella Fantasy SHL</b> med ditt vanliga konto, i den här webbläsaren:<br><a href="https://fantasy.shl.se/login" target="_blank" rel="noopener noreferrer" class="lbtn lbtn-sm">Logga in på fantasy.shl.se ↗</a><br><span>Utan inloggning visar nästa steg inget lag-ID.</span></li>
         <li><a id="lProfile" href="https://fantasy.shl.se/api/v1/user-profile" target="_blank" rel="noopener noreferrer" class="lbtn lbtn-sm">Öppna min profil ↗</a><br><span>En sida med text öppnas i en ny flik.</span></li>
         <li>Tryck <b>Ctrl+A</b> och sedan <b>Ctrl+C</b> (Mac: <b>⌘A</b>, <b>⌘C</b>) på den sidan.</li>
         <li>Kom tillbaka hit, klistra in i <b>Ditt lag-ID</b> och tryck <b>KÖR</b>.</li>
@@ -277,15 +282,17 @@ dialog::backdrop{background:#000a}
 </details>
 
 <section class="card hidden" id="ctx">
-  <div class="row">
+  <div class="row" id="ctxOpts">
     <label class="grow">Liga<select id="leagueSel"></select></label>
-    <label>Omgång<select id="round"></select></label>
+    <label class="hidden">Omgång<select id="round"></select></label>
     <button id="shareBtn" type="button" class="primary hidden" title="Visa QR-kod och länk till ligan">📱 Dela / QR</button>
+  </div>
+  <div class="ctxbar">
+    <div id="activeBar" class="activebar hidden"></div>
     <button id="liveBtn" type="button" class="hidden" title="Hämtar om ligatabell och alla lag. Högst en gång per minut.">Uppdatera live</button>
   </div>
-  <div id="activeBar" class="activebar hidden"></div>
-  <div id="who" class="small muted" style="margin-top:8px"></div>
-  <div id="status" class="small muted" style="margin-top:2px"></div>
+  <div id="who" class="hidden"></div>
+  <div id="status" class="hidden" aria-live="polite"></div>
   <div class="progress"><div id="bar"></div></div>
 </section>
 
@@ -1115,7 +1122,7 @@ dialog::backdrop{background:#000a}
   var FSL = window.FSL;
   // En kompisfil har ligan förinställd (window.FSL_PRESET). Värdena kontrolleras innan de används.
   // Funktioner som kan slås av och på.
-  var FEATURES = { impact: false, nameSearch: false, rival: false }; // "Skadar mig" och startsidans namnsökning: avstängda tills vidare
+  var FEATURES = { impact: false, nameSearch: false, rival: false, share: false }; // "Skadar mig" och startsidans namnsökning: avstängda tills vidare
   // Låst liga (sätts av build_web.py --league). Då visas och används bara den ligan.
   var FIXED = (function (x) {
     return x && /^\d{1,9}$/.test(String(x.id)) ? { id: String(x.id), name: String(x.name || ('Liga ' + x.id)).slice(0, 80) } : null;
@@ -1182,7 +1189,7 @@ dialog::backdrop{background:#000a}
     var acc = access();
     var nameOnly = FEATURES.nameSearch && !!(PRESET && acc && acc.uc === PRESET.uc); // förinställd liga: bara namnsökning
     ['#lNameLabel', '#lNameRow', '#lResults'].forEach(function (sel) { $(sel).classList.toggle('hidden', !FEATURES.nameSearch); });
-    ['#lIdLabel', '#lIdRow', '#lIdMsg', '#lFindId'].forEach(function (sel) { $(sel).classList.toggle('hidden', nameOnly); });
+    ['#lIdLabel', '#lIdRow', '#lIdMsg', '#lLoginNote', '#lFindId'].forEach(function (sel) { $(sel).classList.toggle('hidden', nameOnly); });
     if (nameOnly) $('#lFindBox').classList.add('hidden');
     $('#lNameLead').textContent = nameOnly ? 'Sök ditt namn eller lagnamn' : 'Eller ditt namn eller lagnamn';
     $('#lNameHint').textContent = acc ? '(i ' + (acc.name || (acc.league ? 'liga ' + acc.league : 'dina ligor')) + ')' : '';
@@ -1291,6 +1298,7 @@ dialog::backdrop{background:#000a}
   function getLastLeague() { try { return localStorage.getItem('fsl-league') || ''; } catch (e) { return ''; } }
   function setLastLeague(id) { try { if (id && !S.demo) localStorage.setItem('fsl-league', id); } catch (e) { /* ignoreras */ } renderSaved(); }
   function renderLeagueSelect() {
+    $('#ctxOpts').classList.toggle('hidden', !!FIXED && !S.demo && !FEATURES.share); // låst liga: inget att välja här
     var lab = $('#leagueSel').closest('label'); if (lab) lab.classList.toggle('hidden', !!FIXED && !S.demo);
     var list = (S.leagues || []).slice();
     if (S.league && !list.some(function (l) { return l.id === S.league; })) list.unshift({ id: S.league, name: S.leagueName || 'Liga ' + S.league });
@@ -1484,7 +1492,7 @@ dialog::backdrop{background:#000a}
       if (!S.demo) setUc(S.uc); // koden fungerade: kom ihåg den på den här datorn
       if (FIXED && !S.demo) { // låst liga: namnet är känt, inget extra anrop
         S.leagues = [FIXED]; S.league = FIXED.id; S.leagueName = FIXED.name;
-        setLeagueName(S.league, S.leagueName); $('#shareBtn').classList.remove('hidden');
+        setLeagueName(S.league, S.leagueName); if (FEATURES.share) $('#shareBtn').classList.remove('hidden');
         renderLeagueName(); renderLeagueSelect();
         return;
       }
@@ -1504,7 +1512,7 @@ dialog::backdrop{background:#000a}
         var hit = all.filter(function (l) { return String(l.id) === S.league; })[0];
         S.leagueName = hit && hit.name ? String(hit.name) : '';
         setLeagueName(S.league, S.leagueName);
-        $('#shareBtn').classList.remove('hidden');
+        if (FEATURES.share) $('#shareBtn').classList.remove('hidden');
         renderLeagueName(); renderLeagueSelect();
       });
     }).then(function (stop) {
