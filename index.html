@@ -47,10 +47,10 @@ body.landing #setup,body.landing #ctx,body.landing #tabs,body.landing #deadline,
 .landcard{max-width:520px;margin:0 auto;background:linear-gradient(135deg,#67a4ff 0%,#4d7fca 100%);border-radius:18px;padding:22px 20px 16px;color:#181d26;box-shadow:0 10px 30px #0006}
 .landcard>label{display:block;font-size:1.15rem;font-weight:800;color:#181d26;margin:6px 0 8px}
 .lhint{font-size:.8rem;font-weight:600;color:#181d26b3}
-.lrow{display:flex;gap:10px;margin-bottom:8px}
-.lrow input{flex:1;min-width:0;background:#fff;color:#181d26;border:2px solid #fff;border-radius:8px;padding:11px 12px;font-weight:700;font-size:1rem}
-.lrow input::placeholder{color:#8a96a8;font-style:italic;font-weight:700;letter-spacing:.03em}
-.lrow input:focus{outline:none;border-color:#181d26}
+.lfield{display:flex;gap:10px;margin-bottom:8px}
+.lfield input{flex:1;min-width:0;background:#fff;color:#181d26;border:2px solid #fff;border-radius:8px;padding:11px 12px;font-weight:700;font-size:1rem}
+.lfield input::placeholder{color:#8a96a8;font-style:italic;font-weight:700;letter-spacing:.03em}
+.lfield input:focus{outline:none;border-color:#181d26}
 .lbtn{background:#181d26;color:#fff;border:0;border-radius:8px;padding:0 20px;font-weight:900;letter-spacing:.04em;font-size:1rem;min-width:96px;cursor:pointer}
 .lbtn:hover{background:#163047}
 .lmsg{font-size:.85rem;font-weight:600;min-height:1.1em;margin:0 0 10px;color:#181d26}
@@ -206,7 +206,7 @@ dialog::backdrop{background:#000a}
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="SHL Gameweek">
-<script>window.FSL_PUBLIC_URL="https://fantasy-shl-gameweek.netlify.app/";</script>
+<script>window.FSL_PUBLIC_URL="https://fantasyshlgameweek.github.io/Verken-Ligan/";</script>
 <script>window.FSL_FIXED_LEAGUE={"id": "14303", "name": "Verken-Ligan"};</script>
 </head>
 <body>
@@ -233,7 +233,7 @@ dialog::backdrop{background:#000a}
   </div>
   <div class="landcard">
     <label for="lId" id="lIdLabel">Ditt lag-ID</label>
-    <div class="lrow" id="lIdRow"><input id="lId" placeholder="LAG-ID ELLER LÄNK" autocomplete="off" spellcheck="false" enterkeyhint="go"><button id="lGo" class="lbtn" type="button">KÖR</button></div>
+    <div class="lfield" id="lIdRow"><input id="lId" placeholder="LAG-ID ELLER LÄNK" autocomplete="off" spellcheck="false" enterkeyhint="go"><button id="lGo" class="lbtn" type="button">KÖR</button></div>
     <div id="lIdMsg" class="lmsg"></div>
     <button id="lFindId" class="lfind" type="button">Vet du inte ditt lag-ID? Hitta det på 30 sekunder ›</button>
     <div id="lFindBox" class="lfindbox hidden">
@@ -246,7 +246,7 @@ dialog::backdrop{background:#000a}
       <p>Appen plockar bara ut ditt lag-ID. Allt annat på sidan (t.ex. e-post) kastas direkt och sparas aldrig.</p>
     </div>
     <label for="lName" id="lNameLabel"><span id="lNameLead">Eller ditt namn eller lagnamn</span> <span id="lNameHint" class="lhint"></span></label>
-    <div class="lrow" id="lNameRow"><input id="lName" type="search" placeholder="FÖR- OCH EFTERNAMN" autocomplete="off" spellcheck="false" enterkeyhint="search"><button id="lSearch" class="lbtn" type="button">SÖK</button></div>
+    <div class="lfield" id="lNameRow"><input id="lName" type="search" placeholder="FÖR- OCH EFTERNAMN" autocomplete="off" spellcheck="false" enterkeyhint="search"><button id="lSearch" class="lbtn" type="button">SÖK</button></div>
     <div id="lResults"></div>
     <button id="lDemo" class="ldemo" type="button"><span class="pill">DEMO</span> Testa med en påhittad liga</button>
   </div>
@@ -2077,7 +2077,8 @@ dialog::backdrop{background:#000a}
   }
   function updateUrl() {
     if (S.demo) return;
-    try { history.replaceState(null, '', location.pathname + FSL.buildShareQuery(shareParams(true))); } catch (e) { /* file:// i vissa webbläsare */ }
+    // Adressfältet rensas från kod och lagnamn: appen minns allt i webbläsaren, och delning görs via Dela / QR.
+    try { if (location.search) history.replaceState(null, '', location.pathname); } catch (e) { /* file:// i vissa webbläsare */ }
   }
   function copyLink() {
     var href = baseHref() + FSL.buildShareQuery(shareParams(false));
