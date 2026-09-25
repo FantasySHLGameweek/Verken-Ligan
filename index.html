@@ -1566,7 +1566,7 @@ dialog::backdrop{background:#000a}
     if (inferred) { var c = FSL.inferCard(players0, round.start_date); card = c ? { code: c, name: FSL.CARDS[c] || c } : null; } // tills korten hämtats
     var prep = FSL.prepareTeam(players0, card && card.code, round.start_date);
     return { uc: uc, name: team.team_name, team: team, status: 'ok', card: card, cardInferred: inferred, cardUnknown: inferred && !card,
-      used: puList ? FSL.usedCards(puList) : [], players: prep.players, sum: prep.sum };
+      players: prep.players, sum: prep.sum };
   }
 
   function loadRound(n, token, opts) {
@@ -1616,6 +1616,7 @@ dialog::backdrop{background:#000a}
       if (!teams || token !== S.token) return;
       applyTeams(teams);
       renderAll();
+      if (!opts.keepPrev) loadMyUsed(); // dina använda kort direkt (sparade för låsta omgångar)
       var order = S.teams.map(function (t) { return t.user_code; });
       order.sort(function (a, b) { return (b === S.myUc) - (a === S.myUc); }); // ditt lag först
       var total = order.length, i = 0;
@@ -1650,7 +1651,7 @@ dialog::backdrop{background:#000a}
           var e = S.entries[uc];
           if (rp.status === 200 && e && e.status === 'ok') {
             var puList = resultOf(rp);
-            e.card = FSL.activeCard(puList); e.cardInferred = false; e.cardUnknown = false; e.used = FSL.usedCards(puList);
+            e.card = FSL.activeCard(puList); e.cardInferred = false; e.cardUnknown = false;
           }
           scheduleRender();
           return stepPu();
@@ -1671,6 +1672,26 @@ dialog::backdrop{background:#000a}
       }
       setMsg(esc(e.message), 'err'); setStatus('');
     });
+  }
+
+  // Använda kort för ditt lag: vilket kort som var aktivt (is_active) i varje låst omgång.
+  // (is_available används inte: det visar bara om kortet går att aktivera just nu.)
+  function loadMyUsed() {
+    var uc = S.myUc, token = S.token;
+    if (!uc) return;
+    var rounds = S.rounds.filter(isLocked).map(function (r) { return r.game_round_number; });
+    var list = [], i = 0;
+    function step() {
+      if (token !== S.token || uc !== S.myUc) return;
+      if (i >= rounds.length) { S.myUsed = { uc: uc, list: list }; scheduleRender(); return; }
+      var n = rounds[i++];
+      return apiGet(PU_PATH, rParams(n, uc), { persist: true }).then(function (rp) {
+        var a = rp && rp.status === 200 ? FSL.activeCard(resultOf(rp)) : null;
+        if (a) list.push({ round: n, name: a.name });
+        return step();
+      });
+    }
+    step();
   }
 
   // Förra omgångens lag behövs bara för Byten: hämtas när fliken öppnas och sparas för gott när omgången är klar.
@@ -1715,7 +1736,8 @@ dialog::backdrop{background:#000a}
   }
   function chooseMine(uc) {
     if (!teamOf(uc)) return;
-    S.myUc = uc; S.confirmed = true; S.query = '';
+    S.myUc = uc; S.confirmed = true; S.query = ''; S.myUsed = null;
+    setTimeout(loadMyUsed, 0);
     setLag(S.league, teamName(uc));
     if (S.rivalUc === S.myUc) { var r0 = S.teams.filter(function (t) { return t.user_code !== S.myUc; })[0]; S.rivalUc = r0 && r0.user_code; }
     renderWho(); updateUrl(); renderAll();
@@ -1766,7 +1788,7 @@ dialog::backdrop{background:#000a}
     var cap = captainOf(e), vc = vcOf(e);
     return '<div class="chips">' + (e.cardUnknown ? '<span class="chip">Coachkort hämtas…</span>' : e.card ? '<span class="chip card">★ ' + esc(e.card.name) + '</span>' : '<span class="chip">Inget coachkort</span>') +
       (cap ? '<span class="chip">C ' + esc(surname(cap)) + '</span>' : '') + (vc ? '<span class="chip">A ' + esc(surname(vc)) + '</span>' : '') +
-      (e.used || []).map(function (u) { return '<span class="chip used" title="Förbrukat">' + esc(u) + '</span>'; }).join('') + '</div>';
+      (e.uc === S.myUc && S.myUsed && S.myUsed.uc === e.uc ? S.myUsed.list.map(function (u) { return '<span class="chip" title="Använt kort">✓ ' + esc(u.name) + ' · omg ' + u.round + '</span>'; }).join('') : '') + '</div>';
   }
 
   function leagueStats() {
