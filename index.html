@@ -139,7 +139,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 tr.me td{background:#67a4ff1a}
 tr.bench td{opacity:.55}
 tr.grp td{background:#ffffff08;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.lt{display:grid;grid-template-columns:44px 1fr 56px 60px;align-items:center;gap:6px}
+.lt{display:grid;grid-template-columns:58px 1fr 56px 60px;align-items:center;gap:6px}
 .lt.hd{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;padding:0 8px 6px}
 .sortbtn{background:none;border:0;border-radius:6px;padding:2px 0;font:inherit;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;cursor:pointer;text-decoration:underline dotted #ffffff40;text-underline-offset:3px}
 .sortbtn:hover{color:#fff}
@@ -161,8 +161,11 @@ tr.grp td{background:#ffffff08;font-size:.7rem;font-weight:800;text-transform:up
 .lrow{border-top:1px solid var(--line)}
 .lrow .lt{padding:9px 8px}
 .lrow.me{background:#67a4ff17;border-left:3px solid var(--acc)}
-.rk{display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.rk{display:flex;align-items:baseline;justify-content:flex-start;gap:1px;line-height:1.1;white-space:nowrap}
 .rk b{font-size:.95rem}
+.rk .prev{font-size:.78rem;font-weight:700}
+.rk .prev.up{color:var(--good)}.rk .prev.down{color:var(--bad)}.rk .prev.same{color:var(--muted)}
+.tn .owner{font-weight:500;color:var(--muted)}
 .mv{font-size:.65rem;font-weight:800}
 .mv.up{color:var(--good)}.mv.down{color:var(--bad)}.mv.same{color:var(--muted)}
 .tn{min-width:0}
@@ -1852,7 +1855,9 @@ dialog::backdrop{background:#000a}
       var e = S.entries[t.user_code];
       var cap = captainOf(e);
       var delta = t.previous_rank ? t.previous_rank - t.rank : 0;
-      var mv = byGw ? '<span class="mv same">omg</span>' : delta > 0 ? '<span class="mv up">▲' + delta + '</span>' : delta < 0 ? '<span class="mv down">▼' + (-delta) + '</span>' : '<span class="mv same">•</span>';
+      var prevRank = Number(t.previous_rank) > 0 ? Number(t.previous_rank) : null; // 0 = ingen placering förra veckan
+      var mv = byGw ? '' : '<span class="prev ' + (prevRank == null ? 'same' : delta > 0 ? 'up' : delta < 0 ? 'down' : 'same') + '" title="Placering förra veckan">(' + (prevRank == null ? '-' : prevRank) + ')</span>';
+      var owner = [t.first_name, t.last_name].filter(Boolean).join(' ');
       var meta = [];
       if (e && e.status === 'ok') {
         if (e.card) meta.push('★ ' + esc(e.card.name));
@@ -1861,7 +1866,7 @@ dialog::backdrop{background:#000a}
         if (e.players.length !== 15) meta.push(e.players.length + '/15 spelare');
       } else meta.push(e ? 'ej tillgängligt' : 'hämtas…');
       var out = '<div class="lrow' + (t.user_code === S.myUc ? ' me' : '') + '"><div class="lt"><div class="rk"><b>' + esc(byGw ? pos[t.user_code] : t.rank) + '</b>' + mv + '</div>' +
-        '<div class="tn"><button class="name" data-expand="' + esc(t.user_code) + '">' + esc(t.team_name) + '</button><div class="meta">' + meta.join(' · ') + '</div></div>' +
+        '<div class="tn"><button class="name" data-expand="' + esc(t.user_code) + '">' + esc(t.team_name) + (owner ? ' <span class="owner">(' + esc(owner) + ')</span>' : '') + '</button><div class="meta">' + meta.join(' · ') + '</div></div>' +
         '<div class="gwp">' + esc(t.points) + '</div><div class="tot">' + esc(t.total_points) + '</div></div>';
       if (S.expanded[t.user_code]) {
         out += '<div class="lexp">' + cardsLine(e) + '<div style="height:8px"></div>' + teamView(e) + pointsFoot(e) +
@@ -1875,7 +1880,7 @@ dialog::backdrop{background:#000a}
     };
     el.innerHTML = '<div class="card" style="padding:12px 0 4px"><div style="display:flex;justify-content:space-between;align-items:center;padding:0 14px 10px;gap:8px"><h2 style="margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
       esc(S.leagueName || 'Liga ' + S.league) + '</h2><span class="small muted" style="white-space:nowrap">' + done + '/' + S.teams.length + ' lag</span></div>' +
-      '<div class="lt hd"><div style="text-align:center">#</div><div>Lag</div>' + sb('gw', 'Omg', 'right') + sb('rank', 'Totalt', 'right') + '</div>' + rows + '</div>' +
+      '<div class="lt hd"><div>Plac.</div><div>Lag</div>' + sb('gw', 'Omg', 'right') + sb('rank', 'Totalt', 'right') + '</div>' + rows + '</div>' +
       '<p class="small muted" style="text-align:center">Tryck på <b>Omg</b> för veckans topplista eller <b>Totalt</b> för tabellen. Tryck på ett lag för att se truppen.</p>';
   }
 
