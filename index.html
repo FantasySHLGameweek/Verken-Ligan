@@ -167,8 +167,10 @@ tr.grp td{background:#ffffff08;font-size:.7rem;font-weight:800;text-transform:up
 .lrow.me{background:#67a4ff17;border-left:3px solid var(--acc)}
 .rk{display:flex;align-items:baseline;justify-content:flex-start;gap:1px;line-height:1.1;white-space:nowrap}
 .rk b{font-size:.95rem}
-.rk .prev{font-size:.78rem;font-weight:700}
-.rk .prev.up{color:var(--good)}.rk .prev.down{color:var(--bad)}.rk .prev.same{color:var(--muted)}
+.rk .prev{font-size:.78rem;font-weight:600;color:var(--muted);margin-left:2px}
+.rk b.up{color:var(--good)}.rk b.down{color:var(--bad)}
+.rk .arr{font-size:.62rem;margin-left:1px}
+.rk .arr.up{color:var(--good)}.rk .arr.down{color:var(--bad)}
 .tn .owner{font-weight:500;color:var(--muted)}
 .mv{font-size:.65rem;font-weight:800}
 .mv.up{color:var(--good)}.mv.down{color:var(--bad)}.mv.same{color:var(--muted)}
@@ -1886,7 +1888,10 @@ dialog::backdrop{background:#000a}
       var cap = captainOf(e);
       var delta = t.previous_rank ? t.previous_rank - t.rank : 0;
       var prevRank = Number(t.previous_rank) > 0 ? Number(t.previous_rank) : null; // 0 = ingen placering förra veckan
-      var mv = byGw ? '' : '<span class="prev ' + (prevRank == null ? 'same' : delta > 0 ? 'up' : delta < 0 ? 'down' : 'same') + '" title="Placering förra veckan">(' + (prevRank == null ? '-' : prevRank) + ')</span>';
+      // Placeringen färgas efter rörelsen: grön ▲ = klättrat, röd ▼ = tappat. Förra veckans placering inom parentes.
+      var dir = byGw || prevRank == null || !delta ? '' : delta > 0 ? 'up' : 'down';
+      var mv = byGw ? '' : (dir ? '<span class="arr ' + dir + '" aria-label="' + (dir === 'up' ? 'upp' : 'ner') + ' ' + Math.abs(delta) + '">' + (dir === 'up' ? '▲' : '▼') + '</span>' : '') +
+        '<span class="prev" title="Placering förra veckan">(' + (prevRank == null ? '-' : prevRank) + ')</span>';
       var owner = [t.first_name, t.last_name].filter(Boolean).join(' ');
       var meta = [];
       if (e && e.status === 'ok') {
@@ -1895,7 +1900,7 @@ dialog::backdrop{background:#000a}
         var vc = vcOf(e); if (vc) meta.push('A ' + esc(surname(vc)));
         if (e.players.length !== 15) meta.push(e.players.length + '/15 spelare');
       } else meta.push(e ? 'ej tillgängligt' : 'hämtas…');
-      var out = '<div class="lrow' + (t.user_code === S.myUc ? ' me' : '') + '"><div class="lt"><div class="rk"><b>' + esc(byGw ? pos[t.user_code] : t.rank) + '</b>' + mv + '</div>' +
+      var out = '<div class="lrow' + (t.user_code === S.myUc ? ' me' : '') + '"><div class="lt"><div class="rk"><b class="' + dir + '">' + esc(byGw ? pos[t.user_code] : t.rank) + '</b>' + mv + '</div>' +
         '<div class="tn"><button class="name" data-expand="' + esc(t.user_code) + '">' + esc(t.team_name) + (owner ? ' <span class="owner">(' + esc(owner) + ')</span>' : '') + '</button><div class="meta">' + meta.join(' · ') + '</div></div>' +
         '<div class="gwp">' + esc(t.points) + '</div><div class="tot">' + esc(t.total_points) + '</div></div>';
       if (S.expanded[t.user_code]) {
