@@ -338,6 +338,7 @@ html.fr-modal,html.fr-modal body{overflow:hidden}
 <meta name="apple-mobile-web-app-title" content="Fantasy Rinken">
 <script>window.FSL_PUBLIC_URL="https://fantasyshlgameweek.github.io/Verken-Ligan/";</script>
 <script>window.FSL_DEFAULT_LEAGUE={"id": "14303", "name": "Verken-Ligan"};</script>
+<script>window.FR_STATS="fantasyrinken";</script>
 </head>
 <body>
 <canvas id="fr-rinkcv" aria-hidden="true"></canvas>
@@ -594,7 +595,7 @@ html.fr-modal,html.fr-modal body{overflow:hidden}
 
 <section id="selftest" class="card hidden"></section>
 
-<p class="foot">Fantasy Rinken v2.0.18 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
+<p class="foot">Fantasy Rinken v2.0.19 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
 </main>
 
 <dialog id="shareDlg" class="sharedlg">
@@ -1640,6 +1641,19 @@ html.fr-modal,html.fr-modal body{overflow:hidden}
   // Utgåva: bygg.py sätter window.FR_EDITION = 'full' i din egen version (alla funktioner). Utan den: publik (GitHub/kompisar).
   var FULL = window.FR_EDITION === 'full';
   var FEATURES = { impact: false, nameSearch: false, rival: false, share: false, schedule: FULL, seasonNext: FULL, rivals: FULL };
+  // Användningsstatistik (bara publika utgåvan, när bygg.json har "goatcounter"): ett GET-anrop (bild) till GoatCounter
+  // med LAGNAMN och liga när någon tar fram sitt lag. Aldrig user_code, inga cookies. Högst en gång per lag och webbläsarsession.
+  var STATS = typeof window.FR_STATS === 'string' && /^[a-z0-9-]{2,50}$/.test(window.FR_STATS) ? window.FR_STATS : null;
+  if (STATS) { var footS = document.querySelector('.foot'); if (footS) footS.innerHTML = footS.innerHTML.replace('Inga inloggningar eller cookies.', 'Inga koder eller cookies.'); }
+  function trackTeam() {
+    if (!STATS || !S.myUc || S.demo) return;
+    var name = teamName(S.myUc); if (!name || name === '?') return;
+    var lg = S.leagueName || (FIXED ? FIXED.name : 'Liga ' + S.league);
+    var key = 'fr-stat:' + S.league + ':' + name;
+    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch (e) { /* räknas ändå */ }
+    var img = new Image(); img.referrerPolicy = 'no-referrer';
+    img.src = 'https://' + STATS + '.goatcounter.com/count?e=true&p=' + encodeURIComponent(name + ' · ' + lg) + '&t=' + encodeURIComponent(lg) + '&rnd=' + Math.random().toString(36).slice(2);
+  }
   if (FULL) { var footEl = document.querySelector('.foot'); if (footEl) footEl.innerHTML = footEl.innerHTML.replace(/(Fantasy Rinken v[0-9.]+)/, '$1 · Fullversion'); }
   if (FEATURES.rivals) { var rvBtn = document.querySelector('[data-tab="rivals"]'); if (rvBtn) rvBtn.classList.remove('hidden'); }
   if (FEATURES.schedule) { var schBtn = document.querySelector('[data-tab="schedule"]'); if (schBtn) schBtn.classList.remove('hidden'); } // "Skadar mig" och startsidans namnsökning: avstängda tills vidare
@@ -2200,7 +2214,7 @@ html.fr-modal,html.fr-modal body{overflow:hidden}
       var byCode = (opts.ownCode || getOwn() === S.uc) && teamOf(S.uc) ? S.uc : (opts.team && teamOf(opts.team) ? opts.team : (S.myUc && teamOf(S.myUc) ? S.myUc : null));
       S.myUc = byName || byCode || null; // inget gissat lag: saknas valet visas sökningen
       S.confirmed = !!S.myUc;
-      if (S.confirmed) setLag(S.league, teamName(S.myUc));
+      if (S.confirmed) { setLag(S.league, teamName(S.myUc)); trackTeam(); }
       if (!S.rivalUc || !teamOf(S.rivalUc) || S.rivalUc === S.myUc) {
         var r0 = S.teams.filter(function (t) { return t.user_code !== S.myUc; })[0]; S.rivalUc = r0 ? r0.user_code : null;
       }
@@ -2447,7 +2461,7 @@ html.fr-modal,html.fr-modal body{overflow:hidden}
     if (!teamOf(uc)) return;
     S.myUc = uc; S.confirmed = true; S.query = ''; S.myUsed = null;
     setTimeout(loadMyUsed, 0);
-    setLag(S.league, teamName(uc));
+    setLag(S.league, teamName(uc)); trackTeam();
     if (S.rivalUc === S.myUc) { var r0 = S.teams.filter(function (t) { return t.user_code !== S.myUc; })[0]; S.rivalUc = r0 && r0.user_code; }
     renderWho(); updateUrl(); renderAll();
   }
