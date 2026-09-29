@@ -355,7 +355,7 @@ dialog::backdrop{background:#000a}
 
 <section id="selftest" class="card hidden"></section>
 
-<p class="foot">Fantasy Rinken v2.0.14 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
+<p class="foot">Fantasy Rinken v2.0.15 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
 </main>
 
 <dialog id="shareDlg" class="sharedlg">
@@ -1714,7 +1714,8 @@ dialog::backdrop{background:#000a}
   }
   function teamView(e) {
     if (!e) return '<p class="muted">Hämtas…</p>';
-    if (e.status !== 'ok') return '<p class="muted">Laget kunde inte hämtas (' + esc(e.err) + ').</p>';
+    if (e.status !== 'ok') return /giltigt lag/.test(e.err || '') ? '<p class="muted">Coachen har inte sparat något giltigt lag hos Fantasy SHL, så laget får 0 poäng.</p>'
+      : '<p class="muted">Laget kunde inte hämtas (' + esc(e.err) + ').</p>';
     return S.view === 'list' ? listView(e) : rink(e);
   }
   function viewToggle() {
@@ -1848,7 +1849,7 @@ dialog::backdrop{background:#000a}
   }
   function buildEntry(uc, round, rl, rp) {
     var team = teamOf(uc) || {};
-    if (!rl || rl.status !== 200) return { uc: uc, name: team.team_name, team: team, status: 'error', err: rl && rl.status === 422 ? 'ej tillgänglig' : 'fel ' + (rl ? rl.status : '?'), players: [] };
+    if (!rl || rl.status !== 200) return { uc: uc, name: team.team_name, team: team, status: 'error', err: !rl ? 'fel' : rl.status === 400 ? 'inget giltigt lag hos Fantasy SHL' : rl.status === 422 ? 'ej tillgängligt än' : rl.network ? 'kunde inte hämtas' : 'fel ' + rl.status, players: [] }; // 400 = coachen har aldrig sparat ett giltigt lag
     var players0 = FSL.flattenLineup((resultOf(rl) || {}).team_lineup);
     var puList = rp && rp.status === 200 ? resultOf(rp) : null;
     var card = FSL.activeCard(puList), inferred = !puList;
@@ -2270,7 +2271,7 @@ dialog::backdrop{background:#000a}
         if (cap) meta.push('C ' + plShort(cap, 'inl'));
         var vc = vcOf(e); if (vc) meta.push('A ' + plShort(vc, 'inl'));
         if (e.players.length !== 15) meta.push(e.players.length + '/15 spelare');
-      } else meta.push(e ? 'ej tillgängligt' : 'hämtas…');
+      } else meta.push(e ? esc(e.err || 'ej tillgängligt') : 'hämtas…');
       var out = '<div class="lrow' + (t.user_code === S.myUc ? ' me' : '') + '"><div class="lt"><div class="rk"><b class="' + dir + '">' + esc(byGw ? pos[t.user_code] : t.rank) + '</b>' + mv + '</div>' +
         '<div class="tn"><button class="name" data-expand="' + esc(t.user_code) + '">' + esc(t.team_name) + (owner ? ' <span class="owner">(' + esc(owner) + ')</span>' : '') + '</button><div class="meta">' + meta.join(' · ') + '</div></div>' +
         '<div class="gwp">' + intPts(t.points) + '</div><div class="tot">' + intPts(t.total_points) + '</div></div>';
@@ -2352,7 +2353,7 @@ dialog::backdrop{background:#000a}
       var cur = S.entries[t.user_code], prev = S.prev[t.user_code];
       var head = '<div style="display:flex;justify-content:space-between;gap:8px"><b>' + esc(t.team_name) + '</b>';
       if (!cur || !prev) return '<div class="minirow" style="display:block">' + head + '<span class="small muted">hämtas…</span></div></div>';
-      if (cur.status !== 'ok') return '<div class="minirow" style="display:block">' + head + '<span class="small muted">ej tillgängligt</span></div></div>';
+      if (cur.status !== 'ok') return '<div class="minirow" style="display:block">' + head + '<span class="small muted">' + esc(cur.err || 'ej tillgängligt') + '</span></div></div>';
       var d = FSL.transfersDiff(prev.status === 'ok' ? prev.players : [], cur.players);
       if (d.partial) approx = true;
       if (d.newCoach) return '<div class="minirow" style="display:block">' + head + '<span class="small muted">ny coach</span></div></div>';
@@ -2461,6 +2462,13 @@ dialog::backdrop{background:#000a}
     return embWeeks[n] || [];
   }
   function weekGames(n) { return EMB ? embWeek(n) : S.games[n]; }
+  // Omgångens deadline: Fantasy SHL:s lock_time, annars 1 timme före omgångens första match (så har alla hittills satta deadlines legat).
+  function roundDeadline(n) {
+    var r = roundObj(n) || {};
+    if (r.lock_time && !isNaN(Date.parse(r.lock_time))) return { at: new Date(r.lock_time), estimated: false };
+    var gs = (weekGames(n) || []).map(function (g) { return Date.parse(g.start_time); }).filter(isFinite);
+    return gs.length ? { at: new Date(Math.min.apply(null, gs) - 3600e3), estimated: true } : null;
+  }
   function renderSchedule() {
     var el = $('#tab-schedule');
     if (!S.rounds.length) { el.innerHTML = ''; return; }
@@ -2487,8 +2495,8 @@ dialog::backdrop{background:#000a}
     }).sort(function (a, b) { return (b.total - a.total) || a.name.localeCompare(b.name, 'sv'); });
     var head = '<tr><th class="club">Lag</th>' + weeks.map(function (n) {
       var r = roundObj(n) || {};
-      var d = r.start_date ? new Date(r.start_date + 'T12:00:00').toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) : '';
-      return '<th>Omg ' + esc(n) + (d ? '<br><span class="muted" style="font-weight:500">' + esc(d) + '</span>' : '') + (isLocked(r) ? '<br><span style="color:var(--gold);font-weight:700">pågår</span>' : '') + '</th>';
+      var dl = roundDeadline(n), d = dl ? dl.at.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) + ' ' + dl.at.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' }) : '';
+      return '<th>Omg ' + esc(n) + (d ? '<br><span class="muted" style="font-weight:500" title="Deadline' + (dl.estimated ? ' (beräknad: 1 timme före omgångens första match)' : '') + '">' + esc(d) + '</span>' : '') + (isLocked(r) ? '<br><span style="color:var(--gold);font-weight:700">pågår</span>' : '') + '</th>';
     }).join('') + '<th>Totalt</th></tr>';
     var body = rows.map(function (r) {
       var on = ice[r.code] || [], bn = bench[r.code] || [], open = !!S.schedOpen[r.code];
