@@ -355,7 +355,7 @@ dialog::backdrop{background:#000a}
 
 <section id="selftest" class="card hidden"></section>
 
-<p class="foot">Fantasy Rinken v2.0.14 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
+<p class="foot">Fantasy Rinken v2.0.13 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
 </main>
 
 <dialog id="shareDlg" class="sharedlg">
@@ -1719,16 +1719,10 @@ dialog::backdrop{background:#000a}
   }
   function pointsFoot(e) {
     if (!e || e.status !== 'ok') return '';
-    // Spelarpoäng = summan av spelarnas egna poäng på isen (bänken räknas inte). Poäng = det som räknats till laget (× kapten/kort).
-    var ice = e.players.filter(function (p) { return p.group !== 'BENCH'; });
-    var own = ice.map(function (p) { return p.base != null ? Math.round(p.base) : weekPts(p); });
-    var ownTot = own.some(function (v) { return v == null; }) ? null : own.reduce(function (a, v) { return a + v; }, 0);
-    var counted = Math.round(e.sum);
     var off = e.team ? Number(e.team.points) : NaN;
-    var adj = isFinite(off) ? Math.round(off - counted) : 0;
-    return '<div class="small muted" style="margin-top:8px;text-align:center">Spelarpoäng ' + (ownTot == null ? '…' : ownTot) +
-      (adj ? ' · poäng ' + counted + ' · <span class="neg">avdrag ' + adj + ' (extra byten)</span>' : '') +
-      ' · <b style="color:#fff">omgångspoäng ' + (isFinite(off) ? Math.round(off) : counted) + '</b></div>';
+    var adj = isFinite(off) ? off - e.sum : 0;
+    return '<div class="small muted" style="margin-top:8px;text-align:center">Spelarpoäng ' + e.sum + (adj ? ' · <span class="neg">avdrag ' + adj + ' (extra byten)</span>' : '') +
+      (isFinite(off) ? ' · <b style="color:#fff">omgångspoäng ' + off + '</b>' : '') + '</div>';
   }
 
   /* ---------- Hämtning ---------- */
