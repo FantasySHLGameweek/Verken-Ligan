@@ -355,7 +355,7 @@ dialog::backdrop{background:#000a}
 
 <section id="selftest" class="card hidden"></section>
 
-<p class="foot">Fantasy Rinken v2.0.11 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
+<p class="foot">Fantasy Rinken v2.0.12 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
 </main>
 
 <dialog id="shareDlg" class="sharedlg">
@@ -1688,19 +1688,24 @@ dialog::backdrop{background:#000a}
       '<div class="zone"><span class="zl">Målvakt</span><div class="rrow">' + gk.map(pcard).join('') + '</div><div class="crease"></div></div></div>' +
       (bench.length ? '<div class="benchbox"><div class="zl">Bänk – räknas inte</div><div class="rrow">' + bench.map(pcard).join('') + '</div></div>' : '');
   }
+  // Poäng är alltid heltal (fantasy.shl.se skickar t.ex. "16.00").
+  function intPts(v) { var n = Number(v); return v == null || v === '' || !isFinite(n) ? '–' : String(Math.round(n)); }
   function listView(e) {
     var rows = '';
+    if (!S.demo) queueOfficial(e.players.filter(function (p) { return p.base == null; })); // x0/bänk: officiella poäng i bakgrunden
     ['L1', 'L2', 'GK', 'BENCH'].forEach(function (g) {
-      var ps = e.players.filter(function (p) { return p.group === g; });
+      var SLOT_ORDER = { LW: 0, RW: 1, CE: 2, LD: 3, RD: 4 }; // femmorna: LW, RW, CE, LD, RD
+      var ps = e.players.filter(function (p) { return p.group === g; }).sort(function (a, b) { return (SLOT_ORDER[a.slot] == null ? 9 : SLOT_ORDER[a.slot]) - (SLOT_ORDER[b.slot] == null ? 9 : SLOT_ORDER[b.slot]); });
       if (!ps.length) return;
-      rows += '<tr class="grp"><td colspan="6">' + GROUP_LABEL[g] + '</td></tr>';
+      rows += '<tr class="grp"><td colspan="7">' + GROUP_LABEL[g] + '</td></tr>';
       ps.forEach(function (p) {
         rows += '<tr class="' + (g === 'BENCH' ? 'bench' : '') + '"><td>' + esc(g === 'GK' ? 'GK' : p.slot) + '</td><td>' + plBtn(p) +
           (p.role === 'C' ? ' <span class="chip">C</span>' : p.role === 'VC' ? ' <span class="chip">A</span>' : '') + '</td><td>' + esc(p.club_id) +
-          '</td><td class="n">' + (p.age == null ? '' : p.age) + '</td><td class="n">' + (g === 'BENCH' ? '–' : '×' + p.eff) + '</td><td class="n"><b>' + esc(p.points) + '</b></td></tr>';
+          '</td><td class="n">' + (p.age == null ? '' : p.age) + '</td><td class="n">' + intPts(p.base != null ? p.base : weekPts(p)) + '</td><td class="n">' + (g === 'BENCH' ? '–' : '×' + p.eff) +
+          '</td><td class="n"><b>' + (g === 'BENCH' ? '–' : intPts(p.points)) + '</b></td></tr>'; // Spelarpoäng = egna poäng, Poäng = räknat till laget
       });
     });
-    return '<div class="scroll"><table><thead><tr><th>Pos</th><th>Spelare</th><th>Klubb</th><th class="n">Ålder</th><th class="n">Mult</th><th class="n">Poäng</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    return '<div class="scroll"><table><thead><tr><th>Pos</th><th>Spelare</th><th>Klubb</th><th class="n">Ålder</th><th class="n" title="Spelarens egna poäng i omgången">Spelarpoäng</th><th class="n">Mult</th><th class="n" title="Poäng som räknats till laget (× kapten/kort; bänken räknas inte)">Poäng</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
   function teamView(e) {
     if (!e) return '<p class="muted">Hämtas…</p>';
@@ -2169,9 +2174,9 @@ dialog::backdrop{background:#000a}
     var st = leagueStats();
     var delta = t.previous_rank ? t.previous_rank - t.rank : 0;
     el.innerHTML = '<div class="gwhead"><div class="team">' + esc(t.team_name) + '</div><div class="sub">Omgång ' + S.roundNo + ' · plats ' + esc(t.rank) + ' av ' + S.teams.length +
-      (delta ? ' <span class="' + (delta > 0 ? 'pos' : 'neg') + '">' + (delta > 0 ? '▲' : '▼') + Math.abs(delta) + '</span>' : '') + ' · totalt ' + esc(t.total_points) + '</div>' +
+      (delta ? ' <span class="' + (delta > 0 ? 'pos' : 'neg') + '">' + (delta > 0 ? '▲' : '▼') + Math.abs(delta) + '</span>' : '') + ' · totalt ' + intPts(t.total_points) + '</div>' +
       '<div class="gwstats"><div><div class="v">' + num(st.avg) + '</div><div class="l">Ligasnitt</div></div>' +
-      '<div class="main"><div class="v">' + esc(t.points) + '</div><div class="l">Dina poäng</div></div>' +
+      '<div class="main"><div class="v">' + intPts(t.points) + '</div><div class="l">Dina poäng</div></div>' +
       '<div><div class="v">' + num(st.max) + '</div><div class="l">Högst i ligan</div></div></div>' + cardsLine(e) + '</div>' +
       '<div style="display:flex;justify-content:flex-end;margin:0 0 8px">' + viewToggle() + '</div>' + teamView(e) + pointsFoot(e) +
       '<p class="small muted" style="text-align:center">Poängen är fantasy.shl.se:s egna och inkluderar redan kapten och coachkort. C = kapten, A = assisterande. Tryck på en spelare för att se hur poängen byggts upp och vilka i ligan som äger honom.</p>' + rulesCard();
@@ -2255,7 +2260,7 @@ dialog::backdrop{background:#000a}
       } else meta.push(e ? 'ej tillgängligt' : 'hämtas…');
       var out = '<div class="lrow' + (t.user_code === S.myUc ? ' me' : '') + '"><div class="lt"><div class="rk"><b class="' + dir + '">' + esc(byGw ? pos[t.user_code] : t.rank) + '</b>' + mv + '</div>' +
         '<div class="tn"><button class="name" data-expand="' + esc(t.user_code) + '">' + esc(t.team_name) + (owner ? ' <span class="owner">(' + esc(owner) + ')</span>' : '') + '</button><div class="meta">' + meta.join(' · ') + '</div></div>' +
-        '<div class="gwp">' + esc(t.points) + '</div><div class="tot">' + esc(t.total_points) + '</div></div>';
+        '<div class="gwp">' + intPts(t.points) + '</div><div class="tot">' + intPts(t.total_points) + '</div></div>';
       if (S.expanded[t.user_code]) {
         out += '<div class="lexp">' + cardsLine(e) + '<div style="height:8px"></div>' + teamView(e) + pointsFoot(e) +
           (t.user_code === S.myUc || !S.myUc || !FEATURES.rival ? '' : '<div style="text-align:center;margin-top:8px"><button data-rival="' + esc(t.user_code) + '">Jämför med mitt lag</button></div>') + '</div>';
@@ -2365,7 +2370,7 @@ dialog::backdrop{background:#000a}
     var rr = roundRange();
     var sn = S.snIdx ? FSL.snLookup(S.snIdx, p.name, p.club_id, rr.from, rr.to) : [];
     var off = S.off ? S.off[p.player_id + '|' + S.roundNo] : undefined;
-    if (off && Object.keys(off).some(function (k) { return offReal(off[k]); })) return weekFrom(sn, off);
+    if (off) return weekFrom(sn, off); // officiellt svar finns (även 0 p = spelade inte); Statnet används för matcher Fantasy SHL inte räknat
     if (sn.length) return weekFrom(sn, null);
     var b = null;
     entriesList().some(function (e) { return e.players.some(function (q) { if (String(q.player_id) === String(p.player_id) && q.base != null) { b = Math.round(q.base); return true; } return false; }); });
@@ -2548,7 +2553,7 @@ dialog::backdrop{background:#000a}
     return fetch(url + '?t=' + Date.now(), { cache: 'no-store', credentials: 'omit' }).then(function (r) {
       return r.ok ? r.json() : null;
     }).then(function (d) {
-      if (d && d.games) { S.sn = d; S.snIdx = FSL.snIndex(d); S.snAt = Date.now(); S.snState = 'ok'; renderLiveBadge(); renderTransfers(); if (S.openPid) showOwners(S.openPid, true); }
+      if (d && d.games) { S.sn = d; S.snIdx = FSL.snIndex(d); S.snAt = Date.now(); S.snState = 'ok'; renderLiveBadge(); renderTransfers(); renderMine(); if (S.openPid) showOwners(S.openPid, true); }
       else if (PROXY && (S.snTries = (S.snTries || 0) + 1) <= 6) setTimeout(loadStatnet, 20000); // lokala appen bygger statistiken i bakgrunden första gången
       else if (!S.sn) setSn('none');
       return d;
@@ -2653,7 +2658,7 @@ dialog::backdrop{background:#000a}
     (function next() {
       var p = offQueue.shift(); if (!p) { offBusy = false; return; }
       offBusy = true;
-      officialWeek(p).then(function () { if (S.tab === 'transfers') scheduleRender(); next(); }, function () { next(); });
+      officialWeek(p).then(function () { scheduleRender(); next(); }, function () { next(); });
     })();
   }
   var FANTASY_LABEL = {}, FANTASY_LABEL_GK = {}, RULE_ORDER = {}, RULE_ORDER_GK = {};
