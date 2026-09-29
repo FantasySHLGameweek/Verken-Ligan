@@ -355,7 +355,7 @@ dialog::backdrop{background:#000a}
 
 <section id="selftest" class="card hidden"></section>
 
-<p class="foot">Fantasy Rinken v2.0.13 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
+<p class="foot">Fantasy Rinken v2.0.14 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
 </main>
 
 <dialog id="shareDlg" class="sharedlg">
@@ -1357,7 +1357,10 @@ dialog::backdrop{background:#000a}
   // En kompisfil har ligan förinställd (window.FSL_PRESET). Värdena kontrolleras innan de används.
   // Funktioner som kan slås av och på.
   // schedule: fliken Spelschema. seasonNext: visa kort som aktiverats inför nästa omgång (före deadline) – av, så att ingen avslöjar sina kort för konkurrenterna.
-  var FEATURES = { impact: false, nameSearch: false, rival: false, share: false, schedule: false, seasonNext: false };
+  // Utgåva: bygg.py sätter window.FR_EDITION = 'full' i din egen version (alla funktioner). Utan den: publik (GitHub/kompisar).
+  var FULL = window.FR_EDITION === 'full';
+  var FEATURES = { impact: false, nameSearch: false, rival: false, share: false, schedule: FULL, seasonNext: FULL };
+  if (FULL) { var footEl = document.querySelector('.foot'); if (footEl) footEl.innerHTML = footEl.innerHTML.replace(/(Fantasy Rinken v[0-9.]+)/, '$1 · Fullversion'); }
   if (FEATURES.schedule) { var schBtn = document.querySelector('[data-tab="schedule"]'); if (schBtn) schBtn.classList.remove('hidden'); } // "Skadar mig" och startsidans namnsökning: avstängda tills vidare
   // Låst liga (sätts av bygg_webb.py --league). Då visas och används bara den ligan.
   var FIXED = (function (x) {
@@ -1719,10 +1722,16 @@ dialog::backdrop{background:#000a}
   }
   function pointsFoot(e) {
     if (!e || e.status !== 'ok') return '';
+    // Spelarpoäng = summan av spelarnas egna poäng på isen (bänken räknas inte). Poäng = det som räknats till laget (× kapten/kort).
+    var ice = e.players.filter(function (p) { return p.group !== 'BENCH'; });
+    var own = ice.map(function (p) { return p.base != null ? Math.round(p.base) : weekPts(p); });
+    var ownTot = own.some(function (v) { return v == null; }) ? null : own.reduce(function (a, v) { return a + v; }, 0);
+    var counted = Math.round(e.sum);
     var off = e.team ? Number(e.team.points) : NaN;
-    var adj = isFinite(off) ? off - e.sum : 0;
-    return '<div class="small muted" style="margin-top:8px;text-align:center">Spelarpoäng ' + e.sum + (adj ? ' · <span class="neg">avdrag ' + adj + ' (extra byten)</span>' : '') +
-      (isFinite(off) ? ' · <b style="color:#fff">omgångspoäng ' + off + '</b>' : '') + '</div>';
+    var adj = isFinite(off) ? Math.round(off - counted) : 0;
+    return '<div class="small muted" style="margin-top:8px;text-align:center">Spelarpoäng ' + (ownTot == null ? '…' : ownTot) +
+      (adj ? ' · poäng ' + counted + ' · <span class="neg">avdrag ' + adj + ' (extra byten)</span>' : '') +
+      ' · <b style="color:#fff">omgångspoäng ' + (isFinite(off) ? Math.round(off) : counted) + '</b></div>';
   }
 
   /* ---------- Hämtning ---------- */
@@ -2244,6 +2253,7 @@ dialog::backdrop{background:#000a}
       : function (a, b) { return (a.rank || 999) - (b.rank || 999); });
     var pos = {};
     sorted.forEach(function (t, i) { var prev = sorted[i - 1]; pos[t.user_code] = prev && Number(prev.points) === Number(t.points) ? pos[prev.user_code] : i + 1; });
+    if (S.sortAsc) sorted.reverse(); // tryck igen på Omg/Totalt: minst först (placeringarna behålls)
     var rows = sorted.map(function (t) {
       var e = S.entries[t.user_code];
       var cap = captainOf(e);
@@ -2272,7 +2282,7 @@ dialog::backdrop{background:#000a}
     }).join('');
     var sb = function (key, label, align) {
       var on = S.sort === key;
-      return '<button class="sortbtn' + (on ? ' on' : '') + '" data-sort="' + key + '" style="text-align:' + align + '" aria-pressed="' + on + '" title="Sortera">' + label + (on ? ' ▼' : '') + '</button>';
+      return '<button class="sortbtn' + (on ? ' on' : '') + '" data-sort="' + key + '" style="text-align:' + align + '" aria-pressed="' + on + '" title="' + (on ? (S.sortAsc ? 'Minst först – tryck för mest först' : 'Mest först – tryck för minst först') : 'Sortera') + '">' + label + (on ? (S.sortAsc ? ' ▲' : ' ▼') : '') + '</button>';
     };
     el.innerHTML = '<div class="card" style="padding:12px 0 4px"><div style="display:flex;justify-content:space-between;align-items:center;padding:0 14px 10px;gap:8px"><h2 style="margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
       esc(S.leagueName || 'Liga ' + S.league) + '</h2><span class="small muted" style="white-space:nowrap">' + done + '/' + S.teams.length + ' lag</span></div>' +
@@ -2889,7 +2899,7 @@ dialog::backdrop{background:#000a}
   $('#tabs').addEventListener('click', function (ev) { var b = ev.target.closest('button[data-tab]'); if (b) selectTab(b.getAttribute('data-tab')); });
   document.addEventListener('click', function (ev) {
     var v = ev.target.closest('[data-view]'); if (v) { S.view = v.getAttribute('data-view'); try { localStorage.setItem('fsl-view', S.view); } catch (e) { /* ignoreras */ } renderAll(); return; }
-    var so = ev.target.closest('[data-sort]'); if (so) { S.sort = so.getAttribute('data-sort'); renderLeague(); return; }
+    var so = ev.target.closest('[data-sort]'); if (so) { var key = so.getAttribute('data-sort'); S.sortAsc = S.sort === key ? !S.sortAsc : false; S.sort = key; renderLeague(); return; } // samma knapp igen: vänd ordningen
     var lp = ev.target.closest('[data-landpick]'); if (lp) { landingPick(lp.getAttribute('data-landpick')); return; }
     var ch = ev.target.closest('[data-choose]'); if (ch) { chooseMine(ch.getAttribute('data-choose')); selectTab('mine'); return; }
     if (ev.target.closest('[data-newsearch]')) { closeSettings(); clearMine(); return; }
