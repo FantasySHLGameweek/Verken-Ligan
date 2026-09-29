@@ -283,7 +283,7 @@ dialog::backdrop{background:#000a}
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Fantasy Rinken">
 <script>window.FSL_PUBLIC_URL="https://fantasyshlgameweek.github.io/Verken-Ligan/";</script>
-<script>window.FSL_FIXED_LEAGUE={"id": "14303", "name": "Verken-Ligan"};</script>
+<script>window.FSL_DEFAULT_LEAGUE={"id": "14303", "name": "Verken-Ligan"};</script>
 </head>
 <body>
 <header class="appbar">
@@ -355,7 +355,7 @@ dialog::backdrop{background:#000a}
 
 <section id="selftest" class="card hidden"></section>
 
-<p class="foot">Fantasy Rinken v2.0.12 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
+<p class="foot">Fantasy Rinken v2.0.14 · Verktyget visualiserar ditt Fantasy SHL-lags insamlade poäng, bonusar och statistik för att ge dig en tydlig och smidig översikt över hur dina spelare presterar. Statistik: Statnet AB via shl.se. Inga inloggningar eller cookies.</p>
 </main>
 
 <dialog id="shareDlg" class="sharedlg">
@@ -1363,6 +1363,8 @@ dialog::backdrop{background:#000a}
   var FIXED = (function (x) {
     return x && /^\d{1,9}$/.test(String(x.id)) ? { id: String(x.id), name: String(x.name || ('Liga ' + x.id)).slice(0, 80) } : null;
   })(window.FSL_FIXED_LEAGUE);
+  // Förvald liga (bygg.json "default_league"): öppnas först om besökaren är med i den, men andra ligor går att välja.
+  var DEFAULT_LEAGUE = window.FSL_DEFAULT_LEAGUE && /^\d{1,9}$/.test(String(window.FSL_DEFAULT_LEAGUE.id)) ? String(window.FSL_DEFAULT_LEAGUE.id) : '';
   var PRESET = (function (x) {
     return x && /^[A-Za-z0-9_-]{3,64}$/.test(String(x.uc)) && /^\d{1,9}$/.test(String(x.league))
       ? { uc: String(x.uc), league: String(x.league), name: String(x.name || '').slice(0, 80) } : null;
@@ -1717,10 +1719,16 @@ dialog::backdrop{background:#000a}
   }
   function pointsFoot(e) {
     if (!e || e.status !== 'ok') return '';
+    // Spelarpoäng = summan av spelarnas egna poäng på isen (bänken räknas inte). Poäng = det som räknats till laget (× kapten/kort).
+    var ice = e.players.filter(function (p) { return p.group !== 'BENCH'; });
+    var own = ice.map(function (p) { return p.base != null ? Math.round(p.base) : weekPts(p); });
+    var ownTot = own.some(function (v) { return v == null; }) ? null : own.reduce(function (a, v) { return a + v; }, 0);
+    var counted = Math.round(e.sum);
     var off = e.team ? Number(e.team.points) : NaN;
-    var adj = isFinite(off) ? off - e.sum : 0;
-    return '<div class="small muted" style="margin-top:8px;text-align:center">Spelarpoäng ' + e.sum + (adj ? ' · <span class="neg">avdrag ' + adj + ' (extra byten)</span>' : '') +
-      (isFinite(off) ? ' · <b style="color:#fff">omgångspoäng ' + off + '</b>' : '') + '</div>';
+    var adj = isFinite(off) ? Math.round(off - counted) : 0;
+    return '<div class="small muted" style="margin-top:8px;text-align:center">Spelarpoäng ' + (ownTot == null ? '…' : ownTot) +
+      (adj ? ' · poäng ' + counted + ' · <span class="neg">avdrag ' + adj + ' (extra byten)</span>' : '') +
+      ' · <b style="color:#fff">omgångspoäng ' + (isFinite(off) ? Math.round(off) : counted) + '</b></div>';
   }
 
   /* ---------- Hämtning ---------- */
@@ -1773,7 +1781,8 @@ dialog::backdrop{background:#000a}
         if (!S.league) {
           var last = getLastLeague(), big = getBig();
           var okL = S.leagues.filter(function (l) { return !big[l.id]; });
-          S.league = okL.some(function (l) { return l.id === last; }) ? last : (okL[0] ? okL[0].id : '');
+          var has = function (id) { return !!id && okL.some(function (l) { return l.id === id; }); };
+          S.league = has(last) ? last : has(DEFAULT_LEAGUE) ? DEFAULT_LEAGUE : (okL[0] ? okL[0].id : '');
           opts.auto = true;
           $('#league').value = S.league;
         }
