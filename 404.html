@@ -22,8 +22,18 @@ a:focus-visible{outline:2px solid #a9c3ec;outline-offset:3px}
 <div class="card">
 <h1>Offside – sidan finns inte</h1>
 <p>Länken är fel eller sidan har flyttats.</p>
-<a href="/">Till Fantasy Rinken</a>
+<a id="home" href="/">Till Fantasy Rinken</a>
 </div>
 </main>
+<script>
+// 404-sidan visas på vilken djup adress som helst, så relativa länkar fungerar inte här.
+// Sajtens rot: "/" på egen domän, "/<repo>/" på github.io (projektsida).
+(function () {
+  var seg = location.pathname.split('/')[1];
+  var base = /\.github\.io$/.test(location.hostname) && seg ? '/' + seg + '/' : '/';
+  document.getElementById('home').href = base;
+  document.querySelector('link[rel=icon]').href = base + 'icon-192.png';
+})();
+</script>
 </body>
 </html>
